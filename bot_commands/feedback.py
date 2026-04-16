@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import discord
-from components.feedback_modal import FeedbackModal
+from ui_components.feedback_modal import FeedbackModal
 
 FEEDBACK_BACKEND_URL = os.getenv("FEEDBACK_BACKEND_URL", "http://localhost:8000/feedback")
 

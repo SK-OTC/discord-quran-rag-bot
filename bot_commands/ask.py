@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import discord
-from components.ai_response import AIResponseView
+from ui_components.response_separator import ResponseView
 
 
 RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
@@ -27,5 +27,5 @@ async def ask(self, interaction: discord.Interaction, question: str) -> None:
 
     await interaction.followup.send(
         ephemeral=False,
-        view=AIResponseView(query=question, response=response_text),
+        view=ResponseView(query=question, response=response_text),
     )

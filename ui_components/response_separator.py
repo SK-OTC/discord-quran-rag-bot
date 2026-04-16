@@ -1,7 +1,7 @@
 import discord
-from interactions.btn_interactions import BtnInteractions
+from ui_components.btn_interactions import BtnInteractions
 
-class AIResponseView(discord.ui.LayoutView):
+class ResponseView(discord.ui.LayoutView):
     """Components V2 layout: User Query / Separator / AI Response."""
 
     def __init__(self, query: str, response: str) -> None:
