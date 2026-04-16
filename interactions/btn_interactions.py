@@ -1,8 +1,8 @@
 import discord
-from components.feedback import FeedbackModal
+from bot_commands.feedback import FeedbackHandler
 
 
-class FeedbackView(discord.ui.ActionRow):
+class BtnInteractions(discord.ui.ActionRow):
     def __init__(self) -> None:
         super().__init__()
 
@@ -29,5 +29,5 @@ class FeedbackView(discord.ui.ActionRow):
         interaction: discord.Interaction,
         button: discord.ui.Button,
     ) -> None:
-        await interaction.response.send_modal(FeedbackModal())
+        await interaction.response.send_modal(FeedbackHandler())
     
