@@ -9,4 +9,4 @@ class ResponseView(discord.ui.LayoutView):
         self.add_item(discord.ui.TextDisplay(f"**Query:** {query}"))
         self.add_item(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
         self.add_item(discord.ui.TextDisplay(response))
-        self.add_item(BtnInteractions())
+        self.add_item(BtnInteractions(query=query))

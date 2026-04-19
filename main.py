@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 from backend.server_start import SlashBot
-
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN") 

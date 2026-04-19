@@ -29,3 +29,23 @@ async def ask(self, interaction: discord.Interaction, question: str) -> None:
         ephemeral=False,
         view=ResponseView(query=question, response=response_text),
     )
+
+
+#     create extension if not exists vector;
+
+# create table quran_verses (
+#   id text primary key,        -- verse key e.g. "2:255"
+#   chapter_number int,
+#   verse_number int,
+#   text text,                  -- English translation
+#   embedding vector(768)       -- dimension depends on your embedding model
+# );
+
+# CREATE TABLE user_feedback (
+#   ID serial PRIMARY KEY,
+#   user_id varchar(255) NOT NULL,
+#   username varchar(255) NOT NULL,
+#   rating int NOT NULL,
+#   comments varchar(6000)
+
+# );

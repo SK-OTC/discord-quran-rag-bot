@@ -1,7 +1,6 @@
-import discord
+import asyncio
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from fastapi import FastAPI
 from dotenv import load_dotenv
 from db.supabase_client import supabase
 
@@ -42,5 +41,6 @@ async def feedback(request: FeedbackData) -> Response:
 
 @app.post("/ask", response_model=Response)
 async def ask(request: AskRequest) -> Response:
-    # TODO: connect RAG pipeline here
-    return Response(answer=f"RAG pipeline not connected yet. You asked: {request.question}")
+    from backend.rag import rag_answer
+    answer = await asyncio.to_thread(rag_answer, request.question)
+    return Response(answer=answer)
