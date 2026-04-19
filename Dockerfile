@@ -4,6 +4,7 @@ WORKDIR /usr/local/app
 # Install the application dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch==2.11.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy in the source code
