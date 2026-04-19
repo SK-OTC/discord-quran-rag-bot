@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from db.supabase_client import supabase
+from backend.rag import rag_answer
 
 load_dotenv()
 app = FastAPI()
@@ -41,6 +42,5 @@ async def feedback(request: FeedbackData) -> Response:
 
 @app.post("/ask", response_model=Response)
 async def ask(request: AskRequest) -> Response:
-    from backend.rag import rag_answer
     answer = await asyncio.to_thread(rag_answer, request.question)
     return Response(answer=answer)
