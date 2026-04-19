@@ -6,12 +6,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-model = SentenceTransformer("nomic-ai/nomic-embed-text-v1", trust_remote_code=True)
+_model = None
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 
+def _get_model() -> SentenceTransformer:
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("nomic-ai/nomic-embed-text-v1", trust_remote_code=True)
+    return _model
+
+
 def retrieve_verses(query: str, top_k: int = 10) -> list:
-    query_embedding = model.encode(query).tolist()
+    query_embedding = _get_model().encode(query).tolist()
     result = supabase.rpc("match_verses", {
         "query_embedding": query_embedding,
         "match_count": top_k
