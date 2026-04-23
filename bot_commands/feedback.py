@@ -2,12 +2,14 @@ import os
 import aiohttp
 import discord
 from ui_components.feedback_modal import FeedbackModal
+from metrics import discord_commands_total, discord_command_errors_total
 
 FEEDBACK_BACKEND_URL = os.getenv("FEEDBACK_BACKEND_URL", "http://localhost:8000/feedback")
 
 
 class FeedbackHandler(FeedbackModal):
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        discord_commands_total.labels(command="feedback").inc()
         rating_value = self.rating.value.strip()
         if rating_value not in {"1", "2", "3", "4", "5"}:
             await interaction.response.send_message(
@@ -29,11 +31,13 @@ class FeedbackHandler(FeedbackModal):
             async with aiohttp.ClientSession() as session:
                 async with session.post(FEEDBACK_BACKEND_URL, json=payload) as resp:
                     if resp.status != 200:
+                        discord_command_errors_total.labels(command="feedback").inc()
                         await interaction.followup.send(
                             "Failed to submit feedback. Please try again later.", ephemeral=True
                         )
                         return
         except aiohttp.ClientError:
+            discord_command_errors_total.labels(command="feedback").inc()
             await interaction.followup.send(
                 "Could not reach the feedback server. Please try again later.", ephemeral=True
             )

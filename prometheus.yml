@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s      # How often Prometheus pulls metrics
+  evaluation_interval: 15s  # How often rules are evaluated
+
+scrape_configs:
+  - job_name: "quran-bot"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]  # FastAPI /metrics endpoint

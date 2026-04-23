@@ -1,9 +1,15 @@
 import os
 from dotenv import load_dotenv
+from logger import configure_logging, get_logger
 from backend.server_start import SlashBot
+
+
+configure_logging()
+log = get_logger(__name__)
+
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN") 
+TOKEN = os.getenv("BOT_TOKEN")
 
 
 bot = SlashBot()
@@ -11,7 +17,7 @@ bot = SlashBot()
 # Event handler for when the bot is ready
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    log.info("bot_ready", user=str(bot.user))
 
 
 if not TOKEN:
