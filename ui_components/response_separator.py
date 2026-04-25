@@ -5,7 +5,7 @@ class ResponseView(discord.ui.LayoutView):
 
     _TOTAL_LIMIT = 4000
 
-    def __init__(self, query: str, response: str, fail: bool) -> None:
+    def __init__(self, query: str, response: str, fail: bool, user_id: int = 0) -> None:
         super().__init__(timeout=None)
         query_display = f"**Query:** {query}"
         available = self._TOTAL_LIMIT - len(query_display)
@@ -16,4 +16,4 @@ class ResponseView(discord.ui.LayoutView):
         self.add_item(discord.ui.TextDisplay(query_display))
         self.add_item(discord.ui.Separator(visible=True, spacing=discord.SeparatorSpacing.small))
         self.add_item(discord.ui.TextDisplay(response))       
-        self.add_item(BtnInteractions(query=query, fail=fail))
+        self.add_item(BtnInteractions(query=query, fail=fail, user_id=user_id))

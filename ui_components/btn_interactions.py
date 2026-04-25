@@ -57,6 +57,6 @@ class BtnInteractions(discord.ui.ActionRow):
         from ui_components.response_separator import ResponseView
         await interaction.followup.send(
             ephemeral=False,
-            view=ResponseView(query=self.query, response=response_text, fail=False),
+            view=ResponseView(query=self.query, response=response_text, fail=False, user_id=self.user_id),
         )
        

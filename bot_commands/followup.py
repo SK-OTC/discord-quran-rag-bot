@@ -54,5 +54,5 @@ async def followup(self, interaction: discord.Interaction, question: str) -> Non
 
     await interaction.followup.send(
         ephemeral=False,
-        view=ResponseView(query=question, response=response_text, user_id=user_id),
+        view=ResponseView(query=question, response=response_text, fail=False, user_id=user_id),
     )
