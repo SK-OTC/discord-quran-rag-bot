@@ -5,6 +5,7 @@ from bot_commands.about import about
 from bot_commands.ask import ask
 from bot_commands.followup import followup
 from bot_commands.ping import ping
+from bot_commands.metrics import metrics
 
 # Discord Command List
 class General(commands.Cog):
@@ -28,6 +29,10 @@ class General(commands.Cog):
     @app_commands.describe(question="Your follow-up question")
     async def followupQuestion(self, interaction: discord.Interaction, question: str) -> None:
         await followup(self, interaction, question)
+
+    @app_commands.command(name="metrics", description="Show bot metrics dashboard")
+    async def getMetrics(self, interaction: discord.Interaction) -> None:
+        await metrics(self, interaction)
 
 
 async def setup(bot: commands.Bot) -> None:

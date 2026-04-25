@@ -6,20 +6,45 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
     restart: unless-stopped
+    networks:
+      - monitoring
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3000:3000"
+  discord_bot:
+    build: .
+    container_name: discord_bot
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin   # Change before deploying
-    volumes:
-      - grafana_data:/var/lib/grafana
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CLIENT_ID=${CLIENT_ID}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     depends_on:
       - prometheus
     restart: unless-stopped
+    networks:
+      - monitoring
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: quran-bot-dashboard
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_PROMETHEUS_URL=http://prometheus:9090
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
 
 volumes:
-  grafana_data:
+  prometheus_data:
