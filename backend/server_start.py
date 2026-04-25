@@ -1,3 +1,5 @@
+import os
+
 import discord
 import asyncio
 import uvicorn
@@ -12,6 +14,7 @@ intents.message_content = True
 intents.members = True
 intents.presences = True
 
+host = os.environ["HOST"]
 class SlashBot(commands.Bot):
     def __init__(self) -> None:
         super().__init__(command_prefix="/", intents=intents)
@@ -22,9 +25,9 @@ class SlashBot(commands.Bot):
         synced = await self.tree.sync()
         print(f"Synced {len(synced)} global slash commands")
 
-        config = uvicorn.Config(app, host="127.0.0.1", port=8000, log_level="warning")
+        config = uvicorn.Config(app, host=host, port=8000, log_level="warning")
         server = uvicorn.Server(config)
         asyncio.create_task(server.serve())
-        print("FastAPI server starting on http://127.0.0.1:8000")
+        print(f"FastAPI server starting on {host}:8000")
 
 
