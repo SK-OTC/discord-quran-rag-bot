@@ -35,7 +35,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_PROMETHEUS_URL=http://prometheus.railway.internal:9090
+      - REACT_APP_PROMETHEUS_URL=http://prometheus:9090
     depends_on:
       - prometheus
     restart: unless-stopped
