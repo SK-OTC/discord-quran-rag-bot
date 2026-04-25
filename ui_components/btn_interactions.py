@@ -11,15 +11,19 @@ RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
 
 
 class BtnInteractions(discord.ui.ActionRow):
-    def __init__(self, query: str = "", fail: bool = True, user_id: int = 0) -> None:
+    def __init__(self, query: str = "", show_buttons: str = "all", user_id: int = 0, parent_view=None) -> None:
         super().__init__()
         self.query = query
-        self.fail = fail
+        self.show_buttons = show_buttons
         self.user_id = user_id
+        self.parent_view = parent_view
         
-        if not self.fail:
-            self.add_item(FollowUpButton())
-            self.add_item(RateResponseButton(user_id=self.user_id))
+        # show_buttons options: "all", "followup_and_regenerate", "regenerate_only"
+        if show_buttons == "all":
+            self.add_item(FollowUpButton(parent_view=parent_view))
+            self.add_item(RateResponseButton(user_id=self.user_id, parent_view=parent_view))
+        elif show_buttons == "followup_and_regenerate":
+            self.add_item(FollowUpButton(parent_view=parent_view))
 
     @discord.ui.button(label="Regenerate", style=discord.ButtonStyle.gray, emoji="🔄")
     async def regenerate(
@@ -32,6 +36,7 @@ class BtnInteractions(discord.ui.ActionRow):
         await interaction.response.defer(ephemeral=True)
 
         response_text = "Could not reach the backend. Please try again later."
+        is_success = False
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -41,6 +46,7 @@ class BtnInteractions(discord.ui.ActionRow):
                     if resp.status == 200:
                         data = await resp.json()
                         response_text = data.get("answer", "No answer returned.")
+                        is_success = True
                         log.info("regenerate_success", user_id=interaction.user.id)
                     else:
                         log.warning("regenerate_bad_status", user_id=interaction.user.id, status=resp.status)
@@ -50,13 +56,19 @@ class BtnInteractions(discord.ui.ActionRow):
             log.error("regenerate_network_error", user_id=interaction.user.id, error=str(e))
             discord_command_errors_total.labels(command="regenerate").inc()
             response_text = "Could not reach the RAG server. Please try again later."
-            
-        # Remove buttons from the original message
-        await interaction.message.edit(view=None)
+        
+        # Update original message buttons based on success/error
+        if is_success:
+            # Success: hide all buttons on original message
+            await self.parent_view.update_buttons(interaction, "no_buttons")
+        else:
+            # Error: show only regenerate button on original message
+            await self.parent_view.update_buttons(interaction, "regenerate_only")
 
         from ui_components.response_separator import ResponseView
         await interaction.followup.send(
+            content="",
             ephemeral=False,
-            view=ResponseView(query=self.query, response=response_text, fail=False, user_id=self.user_id),
+            view=ResponseView(query=self.query, response=response_text, show_buttons="all", user_id=self.user_id),
         )
        

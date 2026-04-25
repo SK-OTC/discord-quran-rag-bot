@@ -92,6 +92,7 @@ Answer:"""
                 contents=prompt,
             )
         log.info("gemini_rag_answer_generated")
+        print(response.text)
         return response.text
     except Exception as e:
         log.warning("gemini_failed_fallback_glm5", error=str(e))

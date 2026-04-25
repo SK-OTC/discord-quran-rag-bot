@@ -1,6 +1,5 @@
 import asyncio
-import time
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -22,20 +21,6 @@ app = FastAPI()
 # Auto-instruments all HTTP routes (request counts, latency, status codes)
 # and exposes a /metrics endpoint for Prometheus to scrape.
 Instrumentator().instrument(app).expose(app)
-
-# Timeout middleware - prevent hanging requests from blocking the server
-@app.middleware("http")
-async def timeout_middleware(request: Request, call_next):
-    """Enforce 60 second timeout on all requests to prevent event loop blocking"""
-    try:
-        response = await asyncio.wait_for(call_next(request), timeout=60.0)
-        return response
-    except asyncio.TimeoutError:
-        log.error("request_timeout", path=request.url.path)
-        return JSONResponse(
-            status_code=504,
-            content={"error": "Request processing timeout (60s limit)", "success": False}
-        )
 
 # Global exception handlers
 @app.exception_handler(HTTPException)
@@ -89,119 +74,46 @@ class ErrorResponse(BaseModel):
     success: bool = False
 
 
-async def _save_feedback_to_db(user_id: str, username: str, rating: int, comments: str) -> None:
-    """
-    Background task: Save feedback to database without blocking the response.
-    This runs asynchronously after the API response is sent to the client.
-    """
-    try:
-        with db_write_duration_seconds.labels(table="user_feedback").time():
-            result = (
-                supabase.table("user_feedback")
-                .insert({
-                    "user_id": user_id,
-                    "username": username,
-                    "rating": rating,
-                    "comments": comments,
-                })
-                .execute()
-            )
-        
-        if result.data:
-            feedback_rating_distribution.observe(rating)
-            log.info("feedback_saved_background", user_id=user_id, rating=rating)
-        else:
-            log.error("feedback_save_failed_background", user_id=user_id, error="No data returned")
-    except Exception as e:
-        log.error("feedback_background_error", user_id=user_id, error=str(e), exc_info=True)
-
-
-@app.post("/feedback", response_model=Response, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
-async def feedback(request: FeedbackData, background_tasks: BackgroundTasks) -> Response:
-    try:
-        log.info("feedback_received", user_id=request.user_id, rating=request.rating)
-        
-        # Add feedback saving as background task - returns immediately without waiting for DB write
-        # This prevents the slow database operation from blocking the response
-        background_tasks.add_task(
-            _save_feedback_to_db,
-            request.user_id,
-            request.username,
-            request.rating,
-            request.comments
+@app.post("/feedback", response_model=Response)
+async def feedback(request: FeedbackData) -> Response:
+    with db_write_duration_seconds.labels(table="user_feedback").time():
+        result = (
+            supabase.table("user_feedback")
+            .insert({
+                "user_id": request.user_id,
+                "username": request.username,
+                "rating": request.rating,
+                "comments": request.comments,
+            })
+            .execute()
         )
-        
-        # Return response immediately
-        log.info("feedback_queued_background", user_id=request.user_id)
-        return Response(answer=f"Feedback received! You rated this AI response: {request.rating} stars.")
-
-    except Exception as e:
-        log.error("feedback_error", user_id=request.user_id, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    if not result.data:
+        log.error("feedback_save_failed", user_id=request.user_id)
+        raise HTTPException(status_code=500, detail="Failed to save feedback.")
+    feedback_rating_distribution.observe(request.rating)
+    log.info("feedback_saved", user_id=request.user_id, rating=request.rating)
+    return Response(answer=f"Feedback saved! You rated this AI response: {request.rating} stars.")
 
 
-@app.post("/ask", response_model=Response, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+@app.post("/ask", response_model=Response)
 async def ask(request: AskRequest) -> Response:
-    try:
-        log.info("ask_received", user_id=request.user_id, question_length=len(request.question))
-
-        # Add timeout for RAG query to prevent hanging
-        try:
-            with rag_query_duration_seconds.labels(endpoint="ask").time():
-                answer = await asyncio.wait_for(
-                    asyncio.to_thread(rag_answer, request.question),
-                    timeout=30.0  # 30 second timeout for RAG processing
-                )
-        except asyncio.TimeoutError:
-            log.error("ask_timeout", user_id=request.user_id)
-            raise HTTPException(status_code=504, detail="Question processing took too long. Please try again.")
-
-        if not answer or not answer.strip():
-            log.warning("ask_empty_answer", user_id=request.user_id, question=request.question[:100])
-            raise HTTPException(status_code=500, detail="No answer generated. Please try again.")
-
-        start_conversation(request.user_id, request.question, answer)
-        log.info("ask_answered", user_id=request.user_id, answer_length=len(answer))
-        return Response(answer=answer)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.error("ask_error", user_id=request.user_id, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
+    log.info("ask_received", user_id=request.user_id, question=request.question)
+    with rag_query_duration_seconds.labels(endpoint="ask").time():
+        answer = await asyncio.to_thread(rag_answer, request.question)
+    start_conversation(request.user_id, request.question, answer)
+    log.info("ask_answered", user_id=request.user_id)
+    return Response(answer=answer)
 
 
-@app.post("/followup", response_model=Response, responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+@app.post("/followup", response_model=Response)
 async def followup(request: FollowUpRequest) -> Response:
-    try:
-        log.info("followup_received", user_id=request.user_id, question_length=len(request.question))
-
-        history = get_history(request.user_id)
-        if not history:
-            log.warning("followup_no_history", user_id=request.user_id)
-            raise HTTPException(status_code=404, detail="No conversation history found. Please start a new conversation with /ask first.")
-
-        # Add timeout for RAG query with history
-        try:
-            with rag_query_duration_seconds.labels(endpoint="followup").time():
-                answer = await asyncio.wait_for(
-                    asyncio.to_thread(rag_answer_with_history, request.question, history),
-                    timeout=30.0  # 30 second timeout for RAG processing
-                )
-        except asyncio.TimeoutError:
-            log.error("followup_timeout", user_id=request.user_id)
-            raise HTTPException(status_code=504, detail="Question processing took too long. Please try again.")
-
-        if not answer or not answer.strip():
-            log.warning("followup_empty_answer", user_id=request.user_id, question=request.question[:100])
-            raise HTTPException(status_code=500, detail="No answer generated. Please try again.")
-
-        append_turn(request.user_id, request.question, answer)
-        log.info("followup_answered", user_id=request.user_id, answer_length=len(answer))
-        return Response(answer=answer)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.error("followup_error", user_id=request.user_id, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to process follow-up question: {str(e)}")
+    log.info("followup_received", user_id=request.user_id, question=request.question)
+    history = get_history(request.user_id)
+    if not history:
+        log.warning("followup_no_history", user_id=request.user_id)
+        raise HTTPException(status_code=404, detail="No conversation history found.")
+    with rag_query_duration_seconds.labels(endpoint="followup").time():
+        answer = await asyncio.to_thread(rag_answer_with_history, request.question, history)
+    append_turn(request.user_id, request.question, answer)
+    log.info("followup_answered", user_id=request.user_id)
+    return Response(answer=answer)
