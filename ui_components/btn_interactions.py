@@ -1,8 +1,8 @@
 import os
 import aiohttp
 import discord
-from bot_commands.feedback import FeedbackHandler
-from ui_components.followup_modal import follow_up_modal
+from ui_components.rate_response import RateResponseButton
+from ui_components.followup_modal import FollowUpButton
 from logger import get_logger
 from metrics import discord_commands_total, discord_command_errors_total
 
@@ -11,19 +11,15 @@ RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
 
 
 class BtnInteractions(discord.ui.ActionRow):
-    def __init__(self, query: str = "", user_id: int = 0) -> None:
+    def __init__(self, query: str = "", fail: bool = True, user_id: int = 0) -> None:
         super().__init__()
         self.query = query
+        self.fail = fail
         self.user_id = user_id
-
-    @discord.ui.button(label="Follow up?", style=discord.ButtonStyle.secondary, emoji="💬")
-    async def follow_up(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button,
-    ) -> None:
-        log.info("followup_button_clicked", user_id=interaction.user.id)
-        await follow_up_modal(self, interaction)
+        
+        if not self.fail:
+            self.add_item(FollowUpButton())
+            self.add_item(RateResponseButton(user_id=self.user_id))
 
     @discord.ui.button(label="Regenerate", style=discord.ButtonStyle.gray, emoji="🔄")
     async def regenerate(
@@ -54,19 +50,13 @@ class BtnInteractions(discord.ui.ActionRow):
             log.error("regenerate_network_error", user_id=interaction.user.id, error=str(e))
             discord_command_errors_total.labels(command="regenerate").inc()
             response_text = "Could not reach the RAG server. Please try again later."
+            
+        # Remove buttons from the original message
+        await interaction.message.edit(view=None)
 
         from ui_components.response_separator import ResponseView
         await interaction.followup.send(
             ephemeral=False,
-            view=ResponseView(query=self.query, response=response_text),
+            view=ResponseView(query=self.query, response=response_text, fail=False),
         )
-
-    @discord.ui.button(label="Rate AI response", style=discord.ButtonStyle.gray, emoji="⭐")
-    async def rate_ai_response(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button,
-    ) -> None:
-        log.info("rate_button_clicked", user_id=interaction.user.id)
-        await interaction.response.send_modal(FeedbackHandler())
-
+       
