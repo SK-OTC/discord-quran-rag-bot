@@ -3,7 +3,7 @@ import sys
 import os
 # import psycopg2
 
-# bot-env/Scripts/python.exe ./backend/load_chapters.py
+# bot-env/Scripts/python.exe ./backend/embed_setup.py
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from sentence_transformers import SentenceTransformer

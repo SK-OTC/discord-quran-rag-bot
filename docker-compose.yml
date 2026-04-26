@@ -14,6 +14,8 @@ services:
   discord_bot:
     build: .
     container_name: discord_bot
+    ports:
+      - "8000:8000"
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - CLIENT_ID=${CLIENT_ID}

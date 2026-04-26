@@ -32,7 +32,7 @@ async def followup(self, interaction: discord.Interaction, question: str) -> Non
                     # No cached context — fall back to /ask
                     log.warning("followup_no_history_fallback_to_ask", user_id=user_id)
                     async with session.post(
-                        RAG_ASK_URL,
+                        RAG_BACKEND_URL,
                         json={"user_id": user_id, "question": question},
                     ) as ask_resp:
                         if ask_resp.status == 200:
