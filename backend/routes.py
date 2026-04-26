@@ -149,7 +149,7 @@ async def ask(request: AskRequest) -> Response:
         try:
             with rag_query_duration_seconds.labels(endpoint="ask").time():
                 answer = await asyncio.wait_for(
-                    asyncio.to_thread(rag_answer, request.question),
+                    rag_answer(request.question),
                     timeout=30.0  # 30 second timeout for RAG processing
                 )
         except asyncio.TimeoutError:
@@ -185,7 +185,7 @@ async def followup(request: FollowUpRequest) -> Response:
         try:
             with rag_query_duration_seconds.labels(endpoint="followup").time():
                 answer = await asyncio.wait_for(
-                    asyncio.to_thread(rag_answer_with_history, request.question, history),
+                    rag_answer_with_history(request.question, history),
                     timeout=30.0  # 30 second timeout for RAG processing
                 )
         except asyncio.TimeoutError:

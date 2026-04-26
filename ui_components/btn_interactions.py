@@ -1,13 +1,12 @@
-import os
 import aiohttp
 import discord
 from bot_commands.feedback import FeedbackHandler
+from config import RAG_BACKEND_URL
 from ui_components.followup_modal import follow_up_modal
 from logger import get_logger
 from metrics import discord_commands_total, discord_command_errors_total
 
 log = get_logger(__name__)
-RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
 
 
 class BtnInteractions(discord.ui.ActionRow):

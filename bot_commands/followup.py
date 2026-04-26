@@ -1,13 +1,12 @@
-import os
 import aiohttp
 import discord
+from config import RAG_FOLLOWUP_URL, RAG_BACKEND_URL
 from ui_components.response_separator import ResponseView
 from logger import get_logger
 from metrics import discord_commands_total, discord_command_errors_total
 
 log = get_logger(__name__)
-RAG_FOLLOWUP_URL = os.getenv("RAG_FOLLOWUP_URL", "http://localhost:8000/followup")
-RAG_ASK_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
+RAG_ASK_URL = RAG_BACKEND_URL
 
 
 async def followup(self, interaction: discord.Interaction, question: str) -> None:
