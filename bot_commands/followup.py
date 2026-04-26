@@ -1,7 +1,7 @@
 import os
 import aiohttp
 import discord
-from ui_components.response_separator import ResponseView
+from ui_components.response_view import ResponseView
 from logger import get_logger
 from metrics import discord_commands_total, discord_command_errors_total
 

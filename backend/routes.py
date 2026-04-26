@@ -99,7 +99,7 @@ async def feedback(request: FeedbackData) -> Response:
 async def ask(request: AskRequest) -> Response:
     log.info("ask_received", user_id=request.user_id, question=request.question)
     with rag_query_duration_seconds.labels(endpoint="ask").time():
-        answer = await asyncio.to_thread(rag_answer, request.question)
+        answer = await rag_answer(request.question)
     start_conversation(request.user_id, request.question, answer)
     log.info("ask_answered", user_id=request.user_id)
     return Response(answer=answer)
@@ -113,7 +113,7 @@ async def followup(request: FollowUpRequest) -> Response:
         log.warning("followup_no_history", user_id=request.user_id)
         raise HTTPException(status_code=404, detail="No conversation history found.")
     with rag_query_duration_seconds.labels(endpoint="followup").time():
-        answer = await asyncio.to_thread(rag_answer_with_history, request.question, history)
+        answer = await rag_answer_with_history(request.question, history)
     append_turn(request.user_id, request.question, answer)
     log.info("followup_answered", user_id=request.user_id)
     return Response(answer=answer)

@@ -57,7 +57,7 @@ class FeedbackHandler(FeedbackModal):
         # On success: hide rate button, keep regenerate and followup
         if self.parent_view and self.interaction_message:
             try:
-                from ui_components.response_separator import ResponseView
+                from ui_components.response_view import ResponseView
                 new_view = ResponseView(
                     query=self.parent_view.query, 
                     response=self.parent_view.response,

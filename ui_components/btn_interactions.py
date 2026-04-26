@@ -34,7 +34,7 @@ class BtnInteractions(discord.ui.ActionRow):
         log.info("regenerate_button_clicked", user_id=interaction.user.id, query=self.query)
         discord_commands_total.labels(command="regenerate").inc()
         await interaction.response.defer(ephemeral=True)
-
+        
         response_text = "Could not reach the backend. Please try again later."
         is_success = False
         try:
@@ -65,7 +65,7 @@ class BtnInteractions(discord.ui.ActionRow):
             # Error: show only regenerate button on original message
             await self.parent_view.update_buttons(interaction, "regenerate_only")
 
-        from ui_components.response_separator import ResponseView
+        from ui_components.response_view import ResponseView
         await interaction.followup.send(
             content="",
             ephemeral=False,
