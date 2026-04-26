@@ -19,7 +19,8 @@ A Discord bot that answers questions about the Quran using a RAG (Retrieval-Augm
 ├── cache.py                 # Caching utilities
 ├── logger.py                # Logging configuration
 ├── metrics.py               # Prometheus metrics definitions
-├── prometheus.yml           # Prometheus configuration
+├── prometheus/              # Prometheus configuration
+│   └── prometheus.yml       # Prometheus scrape configuration
 ├── docker-compose.yml       # Docker Compose services (bot, prometheus, dashboard)
 ├── Dockerfile               # Docker build for bot service
 ├── requirements.txt         # Python dependencies
@@ -27,26 +28,29 @@ A Discord bot that answers questions about the Quran using a RAG (Retrieval-Augm
 ├── test_server.py          # Server tests
 ├── .env.example             # Environment variables template
 ├── backend/                 # FastAPI routes and helpers
-│   ├── routes.py
-│   ├── rag.py
-│   ├── load_chapters.py
-│   ├── conversation_store.py
-│   └── server_start.py
+│   ├── routes.py            # FastAPI app with /ask, /health, /metrics endpoints
+│   ├── rag.py               # RAG pipeline implementation
+│   ├── load_chapters.py     # Quran data loading
+│   ├── conversation_store.py # Conversation history management
+│   └── server_start.py      # Discord bot + FastAPI server integration
 ├── bot_commands/            # Slash command handlers
-│   ├── ask.py
-│   ├── about.py
-│   ├── feedback.py
-│   ├── followup.py
-│   └── ping.py
+│   ├── ask.py               # /ask command
+│   ├── about.py             # /about command
+│   ├── feedback.py          # /feedback command
+│   ├── followup.py          # /followup command
+│   └── ping.py              # /ping command
 ├── db/
 │   └── supabase_client.py   # Supabase client initialization
-├── ui_components/           # Discord UI components (views, modals)
-│   ├── btn_interactions.py
-│   ├── feedback_modal.py
-│   ├── followup_modal.py
-│   └── response_separator.py
+├── ui_components/           # Discord UI components (views, modals, buttons)
+│   ├── btn_interactions.py  # Button interaction handlers
+│   ├── feedback_modal.py    # Feedback submission modal
+│   ├── followup_modal.py    # Follow-up question modal
+│   ├── response_view.py     # Response display with buttons
+│   └── rate_response.py     # Rating buttons
 └── dashboard/               # React metrics dashboard
     ├── src/
+    │   ├── App.js           # Main dashboard component
+    │   └── components/      # Reusable UI components
     ├── public/
     ├── package.json
     └── Dockerfile
@@ -62,44 +66,20 @@ A Discord bot that answers questions about the Quran using a RAG (Retrieval-Augm
 - Hugging Face token (for embeddings)
 - Gemini API key (for LLM)
 
-## Quick Start (Local Development)
+## Environment Variables
 
-### 1. Clone and Setup
+Create a `.env` file with the following variables:
 
-```bash
-git clone <repo-url>
-cd discord-quran-rag-bot
-```
-
-### 2. Environment Setup
-
-```bash
-# Create virtual environment
-python -m venv bot-env
-
-# Activate (Windows)
-bot-env\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your credentials:
-
-| Variable | Description |
-|---|---|
-| `BOT_TOKEN` | Discord bot token |
-| `CLIENT_ID` | Discord application client ID |
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SECRET_KEY` | Your Supabase service role key |
-| `HF_TOKEN` | Hugging Face API token |
-| `GEMINI_API_KEY` | Google Gemini API key |
+| Variable | Description | Required |
+|---|---|---|
+| `BOT_TOKEN` | Discord bot token | Yes |
+| `CLIENT_ID` | Discord application client ID | Yes |
+| `SUPABASE_URL` | Your Supabase project URL | Yes |
+| `SUPABASE_SECRET_KEY` | Your Supabase service role key | Yes |
+| `HF_TOKEN` | Hugging Face API token | Yes |
+| `GEMINI_API_KEY` | Google Gemini API key | Yes |
+| `HOST` | FastAPI server host (set to `0.0.0.0` for Docker) | Yes for Docker |
+| `PROMETHEUS_URL` | Prometheus endpoint for bot metrics queries | Yes for Docker |
 
 ### 4. Setup Supabase
 
@@ -124,6 +104,11 @@ python main.py
 
 ## Docker Deployment
 
+The application consists of three services:
+- **discord_bot**: Discord bot with integrated FastAPI server for metrics
+- **prometheus**: Metrics collection and storage
+- **dashboard**: React frontend for metrics visualization
+
 ### Build and Run All Services
 
 ```bash
@@ -140,12 +125,17 @@ docker compose logs -f
 docker compose down
 ```
 
+### Service Architecture
+
+The Discord bot runs both:
+1. **Discord client** - Handles Discord interactions
+2. **FastAPI server** - Exposes `/metrics` endpoint for Prometheus scraping
+
 ### Access Services
 
-- **Bot API**: http://localhost:8000 (docs: /docs, health: /health)
+- **Bot API**: http://localhost:8000 (docs: /docs, health: /health, metrics: /metrics)
 - **Prometheus**: http://localhost:9090
 - **Dashboard**: http://localhost:3000
-
 ### Service Control
 
 ```bash
@@ -163,7 +153,7 @@ docker compose ps
 
 ### Key Metrics
 
-- **Bot Status**: `up{job="quran-bot"}`
+- **Bot Status**: `up{job="discord_bot"}`
 - **Command Count**: `discord_commands_total`
 - **Response Time**: `rag_query_duration_seconds` (median < 5s)
 - **Feedback Rating**: `feedback_rating_distribution` (avg > 4.0/5)
@@ -188,10 +178,27 @@ open http://localhost:3000
 
 ### Common Issues
 
-- **Missing .env variables**: Ensure all required environment variables are set
+- **Missing .env variables**: Ensure all required environment variables are set, including `HOST=0.0.0.0` for Docker
 - **Port conflicts**: Check if ports 8000, 9090, 3000 are available
 - **Model download hangs**: Monitor bot logs for embedding model loading
 - **Dashboard shows no data**: Verify Prometheus is scraping metrics from bot
+- **FastAPI server not accessible**: Check that `HOST=0.0.0.0` is set in Docker environment
+- **Prometheus scraping fails**: Ensure bot container exposes port 8000 and Prometheus config uses correct target
+
+### Docker Networking Issues
+
+- **Bot metrics not scraped**: Prometheus config should use `discord_bot:8000` (container name) not `host.docker.internal:8000`
+- **Dashboard can't connect**: Dashboard uses `http://prometheus:9090` which should work in the monitoring network
+- **Port not exposed**: Bot container must have `ports: - "8000:8000"` in docker-compose.yml
+
+### Docker Image Size
+
+The bot Docker image is ~10GB due to PyTorch and SentenceTransformers dependencies. To reduce size:
+
+- **Remove model pre-download**: Don't download embedding models during build
+- **Use multi-stage builds**: Separate build and runtime stages
+- **Consider smaller models**: Switch to lighter embedding models (e.g., `all-MiniLM-L6-v2` instead of `all-mpnet-base-v2`)
+- **Use slim base images**: Consider `python:3.11-slim` instead of full Python image
 
 ### Logs
 
@@ -201,6 +208,9 @@ docker compose logs
 
 # Specific service
 docker compose logs discord_bot
+
+# Follow logs
+docker compose logs -f prometheus
 ```
 
 ## Requirements

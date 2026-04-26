@@ -21,6 +21,8 @@ services:
       - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}
       - HF_TOKEN=${HF_TOKEN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - HOST=0.0.0.0
+      - PROMETHEUS_URL=http://prometheus:9090
     depends_on:
       - prometheus
     restart: unless-stopped
@@ -31,11 +33,11 @@ services:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_PROMETHEUS_URL=http://prometheus:9090
     container_name: quran-bot-dashboard
     ports:
       - "3000:3000"
-    environment:
-      - REACT_APP_PROMETHEUS_URL=http://prometheus:9090
     depends_on:
       - prometheus
     restart: unless-stopped

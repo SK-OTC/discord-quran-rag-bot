@@ -1,10 +1,9 @@
-import os
 import asyncio
 from sentence_transformers import SentenceTransformer
 from google import genai
 from huggingface_hub import InferenceClient
 from db.supabase_client import supabase_async
-from dotenv import load_dotenv
+from config import GEMINI_API_KEY, HF_TOKEN, HF_GLM_MODEL
 from logger import get_logger
 from metrics import (
     embedding_duration_seconds,
@@ -14,11 +13,10 @@ from metrics import (
     vector_search_duration_seconds,
 )
 
-load_dotenv()
 log = get_logger(__name__)
 
 _model = None
-gemini_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 _hf_client = None
 
 
@@ -26,8 +24,8 @@ def _get_hf_client() -> InferenceClient:
     global _hf_client
     if _hf_client is None:
         _hf_client = InferenceClient(
-            model=os.environ.get("HF_GLM_MODEL", "zai-org/GLM-5"),
-            token=os.environ["HF_TOKEN"],
+            model=HF_GLM_MODEL,
+            token=HF_TOKEN,
         )
     return _hf_client
 
@@ -137,7 +135,7 @@ async def retrieve_context(query: str, top_k: int = 5, context_radius: int = 1) 
 
 def build_prompt(context_data: dict, question: str, history: list[dict] = None) -> str:
     parts = ["You are a knowledgeable Quran assistant. Use ONLY the provided material to answer the question.\n"]
-    parts.append("Answer concisely, cite verse references (e.g., 2:255), and do not show reasoning.\n")
+    parts.append("Be informative and concise, cite verse references (e.g., 2:255), and do not show reasoning. Responses should be 4000 characters or less.\n")
 
     # Chapters (brief)
     parts.append("--- Chapter Information ---")

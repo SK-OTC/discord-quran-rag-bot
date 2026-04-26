@@ -69,7 +69,7 @@ function App() {
 
     try {
       const results = await Promise.allSettled([
-        queryInstant('sum(up{job="quran-bot"})'),
+        queryInstant('sum(up{job="discord_bot"})'),
         queryInstant('sum(discord_commands_total)'),
         queryInstant('histogram_quantile(0.5, sum(rate(rag_query_duration_seconds_bucket[5m])) by (le))'),
         queryInstant('histogram_quantile(0.5, sum(rate(feedback_rating_distribution_bucket[5m])) by (le))'),

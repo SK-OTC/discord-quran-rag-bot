@@ -2,7 +2,6 @@ import asyncio
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from prometheus_fastapi_instrumentator import Instrumentator
 from db.supabase_client import supabase
 from backend.rag import rag_answer, rag_answer_with_history
@@ -14,7 +13,6 @@ from metrics import (
     rag_query_duration_seconds,
 )
 
-load_dotenv()
 log = get_logger(__name__)
 app = FastAPI()
 

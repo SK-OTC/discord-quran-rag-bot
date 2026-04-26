@@ -1,12 +1,11 @@
-import os
 import aiohttp
 import discord
 from ui_components.response_view import ResponseView
 from logger import get_logger
+from config import RAG_BACKEND_URL
 from metrics import discord_commands_total, discord_command_errors_total
 
 log = get_logger(__name__)
-RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
 
 
 async def ask(self, interaction: discord.Interaction, question: str) -> None:

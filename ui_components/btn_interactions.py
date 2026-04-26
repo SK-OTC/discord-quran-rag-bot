@@ -1,13 +1,12 @@
-import os
 import aiohttp
 import discord
 from ui_components.rate_response import RateResponseButton
 from ui_components.followup_modal import FollowUpButton
 from logger import get_logger
+from config import RAG_BACKEND_URL
 from metrics import discord_commands_total, discord_command_errors_total
 
 log = get_logger(__name__)
-RAG_BACKEND_URL = os.getenv("RAG_BACKEND_URL", "http://localhost:8000/ask")
 
 
 class BtnInteractions(discord.ui.ActionRow):
@@ -67,7 +66,7 @@ class BtnInteractions(discord.ui.ActionRow):
 
         from ui_components.response_view import ResponseView
         await interaction.followup.send(
-            content="",
+            content=response_text,
             ephemeral=False,
             view=ResponseView(query=self.query, response=response_text, show_buttons="all", user_id=self.user_id),
         )

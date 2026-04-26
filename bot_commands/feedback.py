@@ -1,10 +1,8 @@
-import os
 import aiohttp
 import discord
 from ui_components.feedback_modal import FeedbackModal
+from config import FEEDBACK_BACKEND_URL
 from metrics import discord_commands_total, discord_command_errors_total
-
-FEEDBACK_BACKEND_URL = os.getenv("FEEDBACK_BACKEND_URL", "http://localhost:8000/feedback")
 
 
 class FeedbackHandler(FeedbackModal):
