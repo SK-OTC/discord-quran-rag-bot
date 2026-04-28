@@ -56,6 +56,13 @@ def _get_model() -> SentenceTransformer:
 _chapter_titles_cache = None
 
 
+def _embed_query_sync(query: str) -> list:
+    """Run embedding in a worker thread to avoid blocking the event loop."""
+    model = _get_model()
+    with embedding_duration_seconds.time():
+        return model.encode(query).tolist()
+
+
 async def _get_chapter_titles() -> dict:
     """Fetch and cache chapter titles asynchronously."""
     global _chapter_titles_cache
@@ -70,10 +77,7 @@ async def _get_chapter_titles() -> dict:
 
 async def retrieve_context(query: str, top_k: int = 5, context_radius: int = 1) -> dict:
     """Retrieve context including verses, footnotes, subtitles, and surrounding verses (async)."""
-    model = _get_model()
-
-    with embedding_duration_seconds.time():
-        query_emb = model.encode(query).tolist()
+    query_emb = await asyncio.to_thread(_embed_query_sync, query)
 
     with vector_search_duration_seconds.time():
         verses_coro = supabase_async.rpc(
@@ -187,7 +191,8 @@ async def rag_answer(question: str) -> str:
 
     try:
         with llm_generation_duration_seconds.labels(model="gemini").time():
-            response = gemini_client.models.generate_content(
+            response = await asyncio.to_thread(
+                gemini_client.models.generate_content,
                 model="gemini-2.5-flash",
                 contents=prompt,
             )
@@ -197,7 +202,7 @@ async def rag_answer(question: str) -> str:
         log.warning("gemini_failed_fallback_glm5", error=str(e))
         llm_fallback_total.inc()
         with llm_generation_duration_seconds.labels(model="glm5").time():
-            return _glm5_generate(prompt)
+            return await asyncio.to_thread(_glm5_generate, prompt)
 
 
 async def rag_answer_with_history(question: str, history: list[dict]) -> str:
@@ -207,7 +212,8 @@ async def rag_answer_with_history(question: str, history: list[dict]) -> str:
 
     try:
         with llm_generation_duration_seconds.labels(model="gemini").time():
-            response = gemini_client.models.generate_content(
+            response = await asyncio.to_thread(
+                gemini_client.models.generate_content,
                 model="gemini-2.5-flash",
                 contents=prompt,
             )
@@ -217,4 +223,4 @@ async def rag_answer_with_history(question: str, history: list[dict]) -> str:
         log.warning("gemini_failed_fallback_glm5", error=str(e))
         llm_fallback_total.inc()
         with llm_generation_duration_seconds.labels(model="glm5").time():
-            return _glm5_generate(prompt)
+            return await asyncio.to_thread(_glm5_generate, prompt)

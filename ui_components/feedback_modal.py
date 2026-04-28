@@ -16,4 +16,3 @@ class FeedbackModal(discord.ui.Modal, title="Rate AI Response"):
         max_length=500,
     )
 
- 

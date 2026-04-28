@@ -1,13 +1,16 @@
-import os
 import aiohttp
 import discord
 from ui_components.feedback_modal import FeedbackModal
+from config import FEEDBACK_BACKEND_URL
 from metrics import discord_commands_total, discord_command_errors_total
-
-FEEDBACK_BACKEND_URL = os.getenv("FEEDBACK_BACKEND_URL", "http://localhost:8000/feedback")
 
 
 class FeedbackHandler(FeedbackModal):
+    def __init__(self, parent_view=None, interaction_message=None):
+        super().__init__()
+        self.parent_view = parent_view
+        self.interaction_message = interaction_message
+    
     async def on_submit(self, interaction: discord.Interaction) -> None:
         discord_commands_total.labels(command="feedback").inc()
         rating_value = self.rating.value.strip()
@@ -48,6 +51,22 @@ class FeedbackHandler(FeedbackModal):
             f"Thanks for your feedback! You rated this response **{rating_value}/5**{comments_text}.",
             ephemeral=True,
         )
+        
+        # On success: hide rate button, keep regenerate and followup
+        if self.parent_view and self.interaction_message:
+            try:
+                from ui_components.response_view import ResponseView
+                new_view = ResponseView(
+                    query=self.parent_view.query, 
+                    response=self.parent_view.response,
+                    show_buttons="followup_and_regenerate",
+                    user_id=self.parent_view.user_id
+                )
+                await self.interaction_message.edit(view=new_view)
+            except Exception as e:
+                from logger import get_logger
+                log = get_logger(__name__)
+                log.error("failed_to_update_buttons_after_rating", error=str(e))
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
         await interaction.response.send_message(
