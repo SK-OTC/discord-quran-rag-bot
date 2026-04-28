@@ -1,3 +1,5 @@
+quran_sql/
+
 # Secrets
 .env
 .env.*

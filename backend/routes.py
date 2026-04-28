@@ -1,9 +1,7 @@
 import asyncio
-import time
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from dotenv import load_dotenv
 from prometheus_fastapi_instrumentator import Instrumentator
 from db.supabase_client import supabase
 from backend.rag import rag_answer, rag_answer_with_history
@@ -15,27 +13,12 @@ from metrics import (
     rag_query_duration_seconds,
 )
 
-load_dotenv()
 log = get_logger(__name__)
 app = FastAPI()
 
 # Auto-instruments all HTTP routes (request counts, latency, status codes)
 # and exposes a /metrics endpoint for Prometheus to scrape.
 Instrumentator().instrument(app).expose(app)
-
-# Timeout middleware - prevent hanging requests from blocking the server
-@app.middleware("http")
-async def timeout_middleware(request: Request, call_next):
-    """Enforce 60 second timeout on all requests to prevent event loop blocking"""
-    try:
-        response = await asyncio.wait_for(call_next(request), timeout=60.0)
-        return response
-    except asyncio.TimeoutError:
-        log.error("request_timeout", path=request.url.path)
-        return JSONResponse(
-            status_code=504,
-            content={"error": "Request processing timeout (60s limit)", "success": False}
-        )
 
 # Global exception handlers
 @app.exception_handler(HTTPException)
@@ -89,58 +72,28 @@ class ErrorResponse(BaseModel):
     success: bool = False
 
 
-async def _save_feedback_to_db(user_id: str, username: str, rating: int, comments: str) -> None:
-    """
-    Background task: Save feedback to database without blocking the response.
-    This runs asynchronously after the API response is sent to the client.
-    """
-    try:
-        with db_write_duration_seconds.labels(table="user_feedback").time():
-            result = (
-                supabase.table("user_feedback")
-                .insert({
-                    "user_id": user_id,
-                    "username": username,
-                    "rating": rating,
-                    "comments": comments,
-                })
-                .execute()
-            )
-        
-        if result.data:
-            feedback_rating_distribution.observe(rating)
-            log.info("feedback_saved_background", user_id=user_id, rating=rating)
-        else:
-            log.error("feedback_save_failed_background", user_id=user_id, error="No data returned")
-    except Exception as e:
-        log.error("feedback_background_error", user_id=user_id, error=str(e), exc_info=True)
-
-
-@app.post("/feedback", response_model=Response, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
-async def feedback(request: FeedbackData, background_tasks: BackgroundTasks) -> Response:
-    try:
-        log.info("feedback_received", user_id=request.user_id, rating=request.rating)
-        
-        # Add feedback saving as background task - returns immediately without waiting for DB write
-        # This prevents the slow database operation from blocking the response
-        background_tasks.add_task(
-            _save_feedback_to_db,
-            request.user_id,
-            request.username,
-            request.rating,
-            request.comments
+@app.post("/feedback", response_model=Response)
+async def feedback(request: FeedbackData) -> Response:
+    with db_write_duration_seconds.labels(table="user_feedback").time():
+        result = (
+            supabase.table("user_feedback")
+            .insert({
+                "user_id": request.user_id,
+                "username": request.username,
+                "rating": request.rating,
+                "comments": request.comments,
+            })
+            .execute()
         )
-        
-        # Return response immediately
-        log.info("feedback_queued_background", user_id=request.user_id)
-        return Response(answer=f"Feedback received! You rated this AI response: {request.rating} stars.")
-
-    except Exception as e:
-        log.error("feedback_error", user_id=request.user_id, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    if not result.data:
+        log.error("feedback_save_failed", user_id=request.user_id)
+        raise HTTPException(status_code=500, detail="Failed to save feedback.")
+    feedback_rating_distribution.observe(request.rating)
+    log.info("feedback_saved", user_id=request.user_id, rating=request.rating)
+    return Response(answer=f"Feedback saved! You rated this AI response: {request.rating} stars.")
 
 
-@app.post("/ask", response_model=Response, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+@app.post("/ask", response_model=Response)
 async def ask(request: AskRequest) -> Response:
     try:
         log.info("ask_received", user_id=request.user_id, question_length=len(request.question))

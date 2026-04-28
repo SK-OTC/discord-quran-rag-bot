@@ -41,6 +41,7 @@ async def ask(self, interaction: discord.Interaction, question: str) -> None:
         response_text = "Could not reach the RAG server. Please try again later."
     
     await interaction.followup.send(
+        content="",
         ephemeral=False,
         view=ResponseView(query=question, response=response_text, show_buttons=show_buttons, user_id=user_id),
     )

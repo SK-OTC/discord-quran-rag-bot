@@ -1,6 +1,9 @@
 # Build stage
 FROM node:22-alpine AS builder
 
+ARG REACT_APP_PROMETHEUS_URL=http://localhost:9090
+ENV REACT_APP_PROMETHEUS_URL=${REACT_APP_PROMETHEUS_URL}
+
 WORKDIR /app
 
 # Copy package files
