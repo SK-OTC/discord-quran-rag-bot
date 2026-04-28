@@ -9,7 +9,11 @@ log = get_logger(__name__)
 
 
 async def followup(self, interaction: discord.Interaction, question: str) -> None:
-    await interaction.response.defer()
+    try:
+        await interaction.response.defer()
+    except discord.NotFound:
+        log.warning("followup_interaction_expired_before_defer", user_id=getattr(interaction.user, "id", None))
+        return
 
     user_id = interaction.user.id
     discord_commands_total.labels(command="followup").inc()

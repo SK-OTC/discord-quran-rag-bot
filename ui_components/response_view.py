@@ -36,8 +36,5 @@ class ResponseView(discord.ui.LayoutView):
     async def update_buttons(self, interaction: discord.Interaction, show_buttons: str) -> None:
         """Update which buttons are shown in this view."""
         self.show_buttons = show_buttons
-        if show_buttons == "no_buttons":
-            await interaction.message.edit(view=None)
-        else:
-            new_view = ResponseView(self.query, self.response, show_buttons=show_buttons, user_id=self.user_id)
-            await interaction.message.edit(view=new_view)
+        new_view = ResponseView(self.query, self.response, show_buttons=show_buttons, user_id=self.user_id)
+        await interaction.message.edit(view=new_view)

@@ -17,6 +17,7 @@ const buildUrl = (path, params) => {
 
 const queryInstant = async (expr) => {
   const response = await fetch(buildUrl('/api/v1/query', { query: expr }));
+  console.log(buildUrl('/api/v1/query', { query: expr }));
   if (!response.ok) throw new Error(`Prometheus instant query failed: ${expr}`);
   return response.json();
 };

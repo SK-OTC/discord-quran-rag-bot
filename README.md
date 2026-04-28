@@ -1,15 +1,39 @@
 # Discord Quran RAG Bot
 
-A Discord bot that answers questions about the Quran using a RAG (Retrieval-Augmented Generation) pipeline, with a FastAPI backend, Supabase for feedback storage, and Prometheus for metrics monitoring.
+A Discord bot with an embedded FastAPI backend that answers Quran questions using async RAG (Retrieval-Augmented Generation), Supabase vector search, and Gemini with GLM fallback.
 
-## Features
+## Current Features
 
-- `/ask` — Ask a question and receive an AI-generated answer
-- `/ping` — Check bot latency
-- `/about` — Show information about the bot
-- `/feedback` — Rate AI responses and submit comments, stored in Supabase
-- Real-time metrics dashboard with Prometheus integration
-- Docker Compose deployment for full-stack setup
+- `/ask` - Ask a question about the Quran
+- `/followup` - Ask a follow-up question using conversation history
+- `/ping` - Check bot latency
+- `/about` - Show bot info
+- `/metrics` - Show metrics dashboard link/info
+- In-message buttons for:
+  - Regenerate
+  - Follow up
+  - Rate AI response
+- Feedback storage in Supabase (`user_feedback`)
+- Prometheus metrics exposed by FastAPI (`/metrics`)
+
+## Architecture
+
+- One Python process runs:
+  - Discord bot
+  - FastAPI app on `127.0.0.1:8000`
+- `backend/routes.py` exposes:
+  - `POST /ask`
+  - `POST /followup`
+  - `POST /feedback`
+  - `GET /health`
+  - `GET /metrics` (via instrumentator)
+- `backend/rag.py` pipeline:
+  - Embeds query with `nomic-ai/nomic-embed-text-v1`
+  - Searches Supabase RPCs (`match_verses`, `match_footnotes`, `match_subtitles`)
+  - Fetches surrounding verses and chapter metadata
+  - Builds grounded prompt
+  - Generates with Gemini (`gemini-2.5-flash`)
+  - Falls back to HF Inference GLM-5 when Gemini fails
 
 ## Project Structure
 
@@ -56,19 +80,32 @@ A Discord bot that answers questions about the Quran using a RAG (Retrieval-Augm
     └── Dockerfile
 ```
 
-## Prerequisites
-
-- Python 3.8+
-- Node.js 16+ (for dashboard development)
-- Docker & Docker Compose (for deployment)
-- Discord bot token and application ID
-- Supabase project
-- Hugging Face token (for embeddings)
-- Gemini API key (for LLM)
-
 ## Environment Variables
 
-Create a `.env` file with the following variables:
+Loaded in `config.py`:
+
+- `BOT_TOKEN`
+- `CLIENT_ID`
+- `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY`
+- `HF_TOKEN`
+- `GEMINI_API_KEY`
+- `HF_GLM_MODEL` (default: `zai-org/GLM-5`)
+- `HOST` (default: `0.0.0.0`)
+- `RAG_BACKEND_URL` (default: `http://localhost:8000/ask`)
+- `RAG_FOLLOWUP_URL` (default: `http://localhost:8000/followup`)
+- `FEEDBACK_BACKEND_URL` (default: `http://localhost:8000/feedback`)
+- `PROMETHEUS_URL` (default: `http://localhost:9090`)
+
+## Local Setup
+
+```bash
+python -m venv bot-env
+bot-env\Scripts\activate
+pip install -r requirements.txt
+```
+
+Create `.env` and fill required values (`BOT_TOKEN`, Supabase creds, `HF_TOKEN`, `GEMINI_API_KEY`).
 
 | Variable | Description | Required |
 |---|---|---|
@@ -79,24 +116,14 @@ Create a `.env` file with the following variables:
 | `HF_TOKEN` | Hugging Face API token | Yes |
 | `GEMINI_API_KEY` | Google Gemini API key | Yes |
 | `HOST` | FastAPI server host (set to `0.0.0.0` for Docker) | Yes for Docker |
-| `PROMETHEUS_URL` | Prometheus endpoint for bot metrics queries | Yes for Docker |
 
-### 4. Setup Supabase
+Vector embedding:
 
-Create a `user_feedback` table:
-
-```sql
-create table user_feedback (
-  id uuid primary key default gen_random_uuid(),
-  user_id text not null,
-  username text not null,
-  rating smallint not null,
-  comments text,
-  created_at timestamptz default now()
-);
+```bash
+bot-env\Scripts\python.exe ./backend/embed_setup.py
 ```
 
-### 5. Run the Bot
+Run:
 
 ```bash
 python main.py
@@ -142,83 +169,33 @@ The Discord bot runs both:
 # Start specific service
 docker compose up -d discord_bot
 
-# Rebuild dashboard
-docker compose build dashboard && docker compose up -d dashboard
-
-# Check status
-docker compose ps
+```sql
+create table if not exists user_feedback (
+  id uuid primary key default gen_random_uuid(),
+  user_id text not null,
+  username text not null,
+  rating smallint not null,
+  comments text,
+  created_at timestamptz default now()
+);
 ```
 
-## Monitoring
+2. Quran-related tables/RPCs used by RAG:
+- `quran_chapters`
+- RPCs: `match_verses`, `match_footnotes`, `match_subtitles`, `get_surrounding_verses`
 
-### Key Metrics
-
-- **Bot Status**: `up{job="discord_bot"}`
-- **Command Count**: `discord_commands_total`
-- **Response Time**: `rag_query_duration_seconds` (median < 5s)
-- **Feedback Rating**: `feedback_rating_distribution` (avg > 4.0/5)
-
-### Verification
+## API Quick Check
 
 ```bash
-# Check containers
-docker compose ps
-
-# Test metrics
-curl http://localhost:8000/metrics
-
-# Test health
 curl http://localhost:8000/health
-
-# View dashboard
-open http://localhost:3000
+curl http://localhost:8000/metrics
 ```
 
-## Troubleshooting
+## Notes
 
-### Common Issues
-
-- **Missing .env variables**: Ensure all required environment variables are set, including `HOST=0.0.0.0` for Docker
-- **Port conflicts**: Check if ports 8000, 9090, 3000 are available
-- **Model download hangs**: Monitor bot logs for embedding model loading
-- **Dashboard shows no data**: Verify Prometheus is scraping metrics from bot
-- **FastAPI server not accessible**: Check that `HOST=0.0.0.0` is set in Docker environment
-- **Prometheus scraping fails**: Ensure bot container exposes port 8000 and Prometheus config uses correct target
-
-### Docker Networking Issues
-
-- **Bot metrics not scraped**: Prometheus config should use `discord_bot:8000` (container name) not `host.docker.internal:8000`
-- **Dashboard can't connect**: Dashboard uses `http://prometheus:9090` which should work in the monitoring network
-- **Port not exposed**: Bot container must have `ports: - "8000:8000"` in docker-compose.yml
-
-### Docker Image Size
-
-The bot Docker image is ~10GB due to PyTorch and SentenceTransformers dependencies. To reduce size:
-
-- **Remove model pre-download**: Don't download embedding models during build
-- **Use multi-stage builds**: Separate build and runtime stages
-- **Consider smaller models**: Switch to lighter embedding models (e.g., `all-MiniLM-L6-v2` instead of `all-mpnet-base-v2`)
-- **Use slim base images**: Consider `python:3.11-slim` instead of full Python image
-
-### Logs
-
-```bash
-# All services
-docker compose logs
-
-# Specific service
-docker compose logs discord_bot
-
-# Follow logs
-docker compose logs -f prometheus
-```
-
-## Requirements
-
-- Python 3.13+
-- A Discord bot application ([Discord Developer Portal](https://discord.com/developers/applications))
-- A Supabase project ([supabase.com](https://supabase.com))
+- UI responses use Discord components v2 (`LayoutView` + `TextDisplay`), so messages are sent via view-only payloads (no plain `content` when sending those views).
+- Heavy inference work in `backend/rag.py` is offloaded with `asyncio.to_thread(...)` to reduce event-loop blocking.
 
 ## License
 
-See [LICENSE](LICENSE).
+See `LICENSE`.

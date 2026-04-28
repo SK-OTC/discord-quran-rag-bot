@@ -95,23 +95,66 @@ async def feedback(request: FeedbackData) -> Response:
 
 @app.post("/ask", response_model=Response)
 async def ask(request: AskRequest) -> Response:
-    log.info("ask_received", user_id=request.user_id, question=request.question)
-    with rag_query_duration_seconds.labels(endpoint="ask").time():
-        answer = await rag_answer(request.question)
-    start_conversation(request.user_id, request.question, answer)
-    log.info("ask_answered", user_id=request.user_id)
-    return Response(answer=answer)
+    try:
+        log.info("ask_received", user_id=request.user_id, question_length=len(request.question))
+
+        # Add timeout for RAG query to prevent hanging
+        try:
+            with rag_query_duration_seconds.labels(endpoint="ask").time():
+                answer = await asyncio.wait_for(
+                    rag_answer(request.question),
+                    timeout=30.0  # 30 second timeout for RAG processing
+                )
+        except asyncio.TimeoutError:
+            log.error("ask_timeout", user_id=request.user_id)
+            raise HTTPException(status_code=504, detail="Question processing took too long. Please try again.")
+
+        if not answer or not answer.strip():
+            log.warning("ask_empty_answer", user_id=request.user_id, question=request.question[:100])
+            raise HTTPException(status_code=500, detail="No answer generated. Please try again.")
+
+        start_conversation(request.user_id, request.question, answer)
+        log.info("ask_answered", user_id=request.user_id, answer_length=len(answer))
+        return Response(answer=answer)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("ask_error", user_id=request.user_id, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
 
 
-@app.post("/followup", response_model=Response)
+@app.post("/followup", response_model=Response, responses={400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
 async def followup(request: FollowUpRequest) -> Response:
-    log.info("followup_received", user_id=request.user_id, question=request.question)
-    history = get_history(request.user_id)
-    if not history:
-        log.warning("followup_no_history", user_id=request.user_id)
-        raise HTTPException(status_code=404, detail="No conversation history found.")
-    with rag_query_duration_seconds.labels(endpoint="followup").time():
-        answer = await rag_answer_with_history(request.question, history)
-    append_turn(request.user_id, request.question, answer)
-    log.info("followup_answered", user_id=request.user_id)
-    return Response(answer=answer)
+    try:
+        log.info("followup_received", user_id=request.user_id, question_length=len(request.question))
+
+        history = get_history(request.user_id)
+        if not history:
+            log.warning("followup_no_history", user_id=request.user_id)
+            raise HTTPException(status_code=404, detail="No conversation history found. Please start a new conversation with /ask first.")
+
+        # Add timeout for RAG query with history
+        try:
+            with rag_query_duration_seconds.labels(endpoint="followup").time():
+                answer = await asyncio.wait_for(
+                    rag_answer_with_history(request.question, history),
+                    timeout=30.0  # 30 second timeout for RAG processing
+                )
+        except asyncio.TimeoutError:
+            log.error("followup_timeout", user_id=request.user_id)
+            raise HTTPException(status_code=504, detail="Question processing took too long. Please try again.")
+
+        if not answer or not answer.strip():
+            log.warning("followup_empty_answer", user_id=request.user_id, question=request.question[:100])
+            raise HTTPException(status_code=500, detail="No answer generated. Please try again.")
+
+        append_turn(request.user_id, request.question, answer)
+        log.info("followup_answered", user_id=request.user_id, answer_length=len(answer))
+        return Response(answer=answer)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("followup_error", user_id=request.user_id, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to process follow-up question: {str(e)}")
