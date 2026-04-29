@@ -88,7 +88,7 @@ Loaded in `config.py`:
 
 ```bash
 python -m venv bot-env
-bot-env\Scripts\activate
+bot-env/Scripts/activate
 pip install -r requirements.txt
 ```
 
@@ -107,7 +107,7 @@ Create `.env` and fill required values (`BOT_TOKEN`, Supabase creds, `HF_TOKEN`,
 Vector embedding:
 
 ```bash
-bot-env\Scripts\python.exe ./backend/embed_setup.py
+bot-env/Scripts/python.exe ./backend/embed_setup.py
 ```
 
 Run:
