@@ -3,7 +3,6 @@ import aiohttp
 import asyncio
 import json
 from typing import Dict, Any, List, Tuple
-from config import PROMETHEUS_URL
 
 async def metrics(self, interaction: discord.Interaction) -> None:
     """Display Prometheus metrics dashboard"""
@@ -63,7 +62,7 @@ async def fetch_prometheus_metrics() -> Dict[str, Any]:
     Uses asyncio.gather() to make all requests concurrently instead of sequentially
     This reduces latency from 500ms+ (sequential) to ~100-150ms (parallel)
     """
-    prometheus_url = f"{PROMETHEUS_URL}/api/v1/query"
+    prometheus_url = "http://localhost:9090/api/v1/query"
     
     # Define the metrics we want to fetch
     queries = {

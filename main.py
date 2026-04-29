@@ -1,11 +1,15 @@
+import os
+from dotenv import load_dotenv
 from logger import configure_logging, get_logger
 from backend.server_start import SlashBot
-from config import BOT_TOKEN
+
 
 configure_logging()
 log = get_logger(__name__)
 
-TOKEN = BOT_TOKEN
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 
 bot = SlashBot()

@@ -37,47 +37,34 @@ A Discord bot with an embedded FastAPI backend that answers Quran questions usin
 
 ## Project Structure
 
-```
-├── main.py                  # Bot entry point, starts Discord bot + FastAPI server
-├── command_list.py          # Registers all slash commands
-├── cache.py                 # Caching utilities
-├── logger.py                # Logging configuration
-├── metrics.py               # Prometheus metrics definitions
-├── prometheus/              # Prometheus configuration
-│   └── prometheus.yml       # Prometheus scrape configuration
-├── docker-compose.yml       # Docker Compose services (bot, prometheus, dashboard)
-├── Dockerfile               # Docker build for bot service
-├── requirements.txt         # Python dependencies
-├── test_endpoints.py        # API endpoint tests
-├── test_server.py          # Server tests
-├── .env.example             # Environment variables template
-├── backend/                 # FastAPI routes and helpers
-│   ├── routes.py            # FastAPI app with /ask, /health, /metrics endpoints
-│   ├── rag.py               # RAG pipeline implementation
-│   ├── load_chapters.py     # Quran data loading
-│   ├── conversation_store.py # Conversation history management
-│   └── server_start.py      # Discord bot + FastAPI server integration
-├── bot_commands/            # Slash command handlers
-│   ├── ask.py               # /ask command
-│   ├── about.py             # /about command
-│   ├── feedback.py          # /feedback command
-│   ├── followup.py          # /followup command
-│   └── ping.py              # /ping command
+```text
+├── main.py
+├── command_list.py
+├── config.py
+├── logger.py
+├── metrics.py
+├── requirements.txt
+├── backend/
+│   ├── routes.py
+│   ├── rag.py
+│   ├── conversation_store.py
+│   ├── load_chapters.py
+│   └── server_start.py
+├── bot_commands/
+│   ├── ask.py
+│   ├── followup.py
+│   ├── about.py
+│   ├── ping.py
+│   └── metrics.py
 ├── db/
-│   └── supabase_client.py   # Supabase client initialization
-├── ui_components/           # Discord UI components (views, modals, buttons)
-│   ├── btn_interactions.py  # Button interaction handlers
-│   ├── feedback_modal.py    # Feedback submission modal
-│   ├── followup_modal.py    # Follow-up question modal
-│   ├── response_view.py     # Response display with buttons
-│   └── rate_response.py     # Rating buttons
-└── dashboard/               # React metrics dashboard
-    ├── src/
-    │   ├── App.js           # Main dashboard component
-    │   └── components/      # Reusable UI components
-    ├── public/
-    ├── package.json
-    └── Dockerfile
+│   └── supabase_client.py
+├── ui_components/
+│   ├── response_view.py
+│   ├── btn_interactions.py
+│   ├── followup_modal.py
+│   ├── feedback_modal.py
+│   └── rate_response.py
+└── dashboard/
 ```
 
 ## Environment Variables
@@ -152,22 +139,11 @@ docker compose logs -f
 docker compose down
 ```
 
-### Service Architecture
+## Supabase Requirements
 
-The Discord bot runs both:
-1. **Discord client** - Handles Discord interactions
-2. **FastAPI server** - Exposes `/metrics` endpoint for Prometheus scraping
+This app expects:
 
-### Access Services
-
-- **Bot API**: http://localhost:8000 (docs: /docs, health: /health, metrics: /metrics)
-- **Prometheus**: http://localhost:9090
-- **Dashboard**: http://localhost:3000
-### Service Control
-
-```bash
-# Start specific service
-docker compose up -d discord_bot
+1. A `user_feedback` table:
 
 ```sql
 create table if not exists user_feedback (

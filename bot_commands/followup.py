@@ -62,7 +62,6 @@ async def followup(self, interaction: discord.Interaction, question: str) -> Non
     show_buttons = "no_buttons" if is_success else "regenerate_only"
     
     await interaction.followup.send(
-        content="",
         ephemeral=False,
         view=ResponseView(query=question, response=response_text, show_buttons=show_buttons, user_id=user_id),
     )
