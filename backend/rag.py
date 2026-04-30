@@ -136,7 +136,7 @@ async def retrieve_context(query: str, top_k: int = 5, context_radius: int = 1) 
 
 
 def build_prompt(context_data: dict, question: str, history: list[dict] = None) -> str:
-    parts = ["You are a knowledgeable Quran assistant. Use ONLY the provided material to answer the question.\n"]
+    parts = ["You are a knowledgeable Quran assistant. Use ONLY the provided material to answer the question. Answer questions in light of the Quran.\n"]
     parts.append("Answer concisely, cite verse references (e.g., 2:255), and do not show reasoning.\n")
 
     parts.append("--- Chapter Information ---")
