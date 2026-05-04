@@ -11,7 +11,7 @@ class ResponseView(discord.ui.LayoutView):
         Args:
             query: The user's query
             response: The AI response
-            show_buttons: "all", "followup_and_regenerate", "regenerate_only", "rate_only", "try_again", "no_buttons", "delete_only"
+            show_buttons: "all", "followup_and_regenerate", "regenerate_only", "rate_only", "try_again", "no_buttons", "delete_only", "disabled"
             user_id: The user ID
             action_type: "ask", "followup", or "regenerate" - used for Try again button
         """
@@ -41,6 +41,20 @@ class ResponseView(discord.ui.LayoutView):
                 action_type=action_type
             ))
     
+    async def send_new_response(self, interaction: discord.Interaction, query: str, response_text: str, show_buttons: str, user_id: int) -> None:
+        """Send a new response message without importing ResponseView in button files."""
+        new_view = ResponseView(
+            query=query,
+            response=response_text,
+            show_buttons=show_buttons,
+            user_id=user_id,
+            action_type="regenerate"
+        )
+        await interaction.followup.send(
+            ephemeral=False,
+            view=new_view
+        )
+
     async def update_buttons(self, interaction: discord.Interaction, show_buttons: str, action_type: str = None) -> None:
         """Update which buttons are shown in this view."""
         if action_type is None:
@@ -51,8 +65,8 @@ class ResponseView(discord.ui.LayoutView):
         
         # Create new view with same content but different buttons
         new_view = ResponseView(
-            query=self.query,  # Preserve original query
-            response=self.response,  # Preserve original response
+            query=self.query,
+            response=self.response,
             show_buttons=show_buttons, 
             user_id=self.user_id,
             action_type=action_type
@@ -61,7 +75,6 @@ class ResponseView(discord.ui.LayoutView):
         try:
             await interaction.message.edit(view=new_view)
         except discord.NotFound:
-            # Message was deleted
             pass
         except Exception as e:
             from logger import get_logger

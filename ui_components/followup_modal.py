@@ -4,11 +4,12 @@ from logger import get_logger
 log = get_logger(__name__)
 
 class FollowUpButton(discord.ui.Button):
-    def __init__(self, parent_view=None) -> None:
+    def __init__(self, parent_view=None, disabled: bool = False) -> None:
         super().__init__(
             label="Follow up?",
             style=discord.ButtonStyle.secondary,
-            emoji="💬"
+            emoji="💬",
+            disabled=disabled
         )
         self.parent_view = parent_view
 
