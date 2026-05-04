@@ -60,10 +60,13 @@ A Discord bot with an embedded FastAPI backend that answers Quran questions usin
 │   └── supabase_client.py
 ├── ui_components/
 │   ├── response_view.py
+│   ├── delete_btn.py
 │   ├── btn_interactions.py
 │   ├── followup_modal.py
+│   ├── regenerate_btn.py
 │   ├── feedback_modal.py
-│   └── rate_response.py
+│   ├── try_again_btn.py
+│   └── rate_response_btn.py
 └── dashboard/
 ```
 
